@@ -1,7 +1,6 @@
 import gradio as gr
-from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional
 import json
 import uuid
 import time
@@ -14,7 +13,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.exceptions import InvalidSignature
 
 # =============================================================================
-# JEP Core (shared between UI and API)
+# JEP Core
 # =============================================================================
 
 class JEPEvent:
@@ -102,7 +101,7 @@ class JEPValidator:
         now = int(time.time())
         when = event_dict.get("when", 0)
         if abs(now - when) > self.clock_skew:
-            return False, f"Clock skew exceeded"
+            return False, "Clock skew exceeded"
         
         try:
             pub_key = serialization.load_pem_public_key(public_key_pem.encode())
@@ -126,8 +125,10 @@ class JEPValidator:
             return False, f"Verification error: {str(e)}"
 
 
+EVENT_STORE = {}
+
 # =============================================================================
-# FastAPI Models & State
+# FastAPI Models for REST API
 # =============================================================================
 
 class CreateEventRequest(BaseModel):
@@ -144,97 +145,6 @@ class VerifyEventRequest(BaseModel):
     event_json: str
     public_key_pem: str
     clock_skew: int = 300
-
-class APIResponse(BaseModel):
-    success: bool
-    event_id: Optional[str] = None
-    event_json: Optional[str] = None
-    signature: Optional[str] = None
-    public_key_pem: Optional[str] = None
-    message: str
-
-EVENT_STORE = {}
-
-# =============================================================================
-# FastAPI App
-# =============================================================================
-
-app = FastAPI(
-    title="JEP Core API & Demo",
-    description="REST API + Interactive Demo for Judgment Event Protocol (JEP-04)",
-    version="0.2.0"
-)
-
-@app.get("/")
-def root():
-    return {
-        "service": "JEP Core API & Demo",
-        "ui": "/",
-        "docs": "/docs",
-        "endpoints": {
-            "POST /api/v1/events/create": "Create and sign a JEP event",
-            "POST /api/v1/events/verify": "Verify a JEP event",
-            "GET /api/v1/health": "Health check"
-        }
-    }
-
-@app.get("/api/v1/health")
-def health():
-    return {"status": "ok", "protocol": "JEP", "version": "0.2.0"}
-
-@app.post("/api/v1/events/create", response_model=APIResponse)
-def api_create_event(req: CreateEventRequest):
-    try:
-        event = JEPEvent(
-            verb=req.verb,
-            who=req.who,
-            what_content=req.what_content,
-            aud=req.aud,
-            ref=req.ref,
-            ttl=req.ttl_minutes if req.ttl_minutes > 0 else None,
-            digest_only=req.digest_only,
-            salt=req.salt
-        )
-        
-        signer = JEPSigner()
-        payload = event.canonicalize()
-        event.sig = signer.sign(payload)
-        
-        EVENT_STORE[event.nonce] = event.to_dict()
-        
-        return APIResponse(
-            success=True,
-            event_id=event.nonce,
-            event_json=json.dumps(event.to_dict(), indent=2, ensure_ascii=False),
-            signature=event.sig,
-            public_key_pem=signer.get_public_key_pem(),
-            message="Event created and signed"
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/v1/events/verify", response_model=APIResponse)
-def api_verify_event(req: VerifyEventRequest):
-    try:
-        event_dict = json.loads(req.event_json)
-        sig = event_dict.pop("sig", None)
-        if not sig:
-            return APIResponse(success=False, message="Missing sig")
-        
-        nonce = event_dict.get("nonce")
-        if nonce in EVENT_STORE:
-            return APIResponse(success=False, message="REPLAY: nonce consumed")
-        
-        validator = JEPValidator(clock_skew=req.clock_skew)
-        valid, msg = validator.verify(event_dict, sig, req.public_key_pem)
-        
-        if valid:
-            EVENT_STORE[nonce] = event_dict
-        
-        return APIResponse(success=valid, message=msg)
-    except Exception as e:
-        return APIResponse(success=False, message=f"Error: {str(e)}")
-
 
 # =============================================================================
 # Gradio UI
@@ -408,4 +318,68 @@ with gr.Blocks(title="JEP Spec — Judgment Event Protocol", css=".contain { max
     ```
     """)
 
-app = gr.mount_gradio_app(app, demo, path="/")
+
+# =============================================================================
+# REST API mounted on Gradio's underlying FastAPI app
+# =============================================================================
+
+from fastapi import HTTPException
+
+api_app = demo.app
+
+@api_app.get("/api/v1/health")
+def api_health():
+    return {"status": "ok", "protocol": "JEP", "version": "0.2.0"}
+
+@api_app.post("/api/v1/events/create")
+def api_create_event(req: CreateEventRequest):
+    try:
+        event = JEPEvent(
+            verb=req.verb,
+            who=req.who,
+            what_content=req.what_content,
+            aud=req.aud,
+            ref=req.ref,
+            ttl=req.ttl_minutes if req.ttl_minutes > 0 else None,
+            digest_only=req.digest_only,
+            salt=req.salt
+        )
+        
+        signer = JEPSigner()
+        payload = event.canonicalize()
+        event.sig = signer.sign(payload)
+        
+        EVENT_STORE[event.nonce] = event.to_dict()
+        
+        return {
+            "success": True,
+            "event_id": event.nonce,
+            "event_json": json.dumps(event.to_dict(), indent=2, ensure_ascii=False),
+            "signature": event.sig,
+            "public_key_pem": signer.get_public_key_pem(),
+            "message": "Event created and signed"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_app.post("/api/v1/events/verify")
+def api_verify_event(req: VerifyEventRequest):
+    try:
+        event_dict = json.loads(req.event_json)
+        sig = event_dict.pop("sig", None)
+        if not sig:
+            return {"success": False, "message": "Missing sig"}
+        
+        nonce = event_dict.get("nonce")
+        if nonce in EVENT_STORE:
+            return {"success": False, "message": "REPLAY: nonce consumed"}
+        
+        validator = JEPValidator(clock_skew=req.clock_skew)
+        valid, msg = validator.verify(event_dict, sig, req.public_key_pem)
+        
+        if valid:
+            EVENT_STORE[nonce] = event_dict
+        
+        return {"success": valid, "message": msg}
+    except Exception as e:
+        return {"success": False, "message": f"Error: {str(e)}"}
