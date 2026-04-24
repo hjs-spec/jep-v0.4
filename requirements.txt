@@ -1,5 +1,4 @@
 gradio>=5.20.0
 canonicaljson
 cryptography
-fastapi
 pytest
