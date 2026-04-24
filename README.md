@@ -44,4 +44,4 @@ Apache-2.0
 
 ## 作者
 
-Cognitive Emergence Lab / Human Judgment Systerms Foundation
+Cognitive Emergence Lab / Human Judgment Systems Foundation
