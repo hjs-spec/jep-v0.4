@@ -13,35 +13,35 @@ pinned: false
 
 **A Minimal Verifiable Log Format for Agent Decisions**
 
-本仓库托管 **JEP-04** IETF Internet-Draft 的交互式参考实现。
+This repository hosts the interactive reference implementation of the **JEP-04** IETF Internet-Draft.
 
-## 协议核心
+## Protocol Core
 
-- **J** (Judge) — 发起决策
-- **D** (Delegate) — 转移决策权
-- **T** (Terminate) — 终止决策生命周期
-- **V** (Verify) — 验证已有事件
+- **J** (Judge) — Initiate a decision
+- **D** (Delegate) — Transfer decision authority
+- **T** (Terminate) — Terminate decision lifecycle
+- **V** (Verify) — Verify an existing event
 
-## 技术特性
+## Technical Features
 
-| 规范 | 实现 |
+| Specification | Implementation |
 |------|------|
-| RFC 8785 JCS | `canonicaljson` 规范化 |
-| RFC 7515 JWS | Ed25519 数字签名 |
-| RFC 9562 UUIDv4 | 密码学安全随机 nonce |
-| 防重放 | 验证器 nonce 缓存 |
-| 时钟容差 | ±5 分钟默认窗口 |
+| RFC 8785 JCS | `canonicaljson` canonicalization |
+| RFC 7515 JWS | Ed25519 digital signature |
+| RFC 9562 UUIDv4 | Cryptographically secure random nonce |
+| Anti-replay | Verifier nonce cache |
+| Clock skew tolerance | ±5 minute default window |
 
-## 关联资源
+## Related Resources
 
-- **数学基础**：[causal-observability-demo](https://huggingface.co/spaces/cognitiveemergencelab/causal-observability-demo)
-- **论文与语料**：[jep-papers-and-corpus](https://huggingface.co/datasets/cognitiveemergencelab/jep-papers-and-corpus)
-- **协议草案**：`draft-wang-jep-judgment-event-protocol-04`
+- **Mathematical Foundation**: [causal-observability-demo](https://huggingface.co/spaces/cognitiveemergencelab/causal-observability-demo )
+- **Papers and Corpus**: [jep-papers-and-corpus](https://huggingface.co/datasets/cognitiveemergencelab/jep-papers-and-corpus )
+- **Protocol Draft**: `draft-wang-jep-judgment-event-protocol-04`
 
-## 许可证
+## License
 
 Apache-2.0
 
-## 作者
+## Author
 
 Cognitive Emergence Lab / Human Judgment Systems Foundation
