@@ -3,7 +3,7 @@ import time
 from app import JEPEvent, JEPSigner, JEPValidator
 
 def test_judgment_event_structure():
-    """JEP Section 2.2: 核心事件格式验证"""
+    """JEP Section 2.2: Core event format verification"""
     event = JEPEvent("J", "did:example:agent-001", "approve-transfer")
     event_dict = event.to_dict(include_sig=False)
     assert event_dict["jep"] == "1"
@@ -14,13 +14,13 @@ def test_judgment_event_structure():
     assert event_dict["ref"] is None
 
 def test_digest_only_anonymity():
-    """Section 2.5.1: Digest-Only 扩展"""
+    """Section 2.5.1: Digest-Only extension"""
     event = JEPEvent("J", "user@example.com", "content", privacy_mode="digest_only", salt="test-salt")
     assert event.who != "user@example.com"
     assert event.who.startswith("sha256:")
 
 def test_signature_and_verification():
-    """Section 2.4: JWS 签名与验证"""
+    """Section 2.4: JWS signature and verification"""
     event = JEPEvent("J", "did:example:agent-001", "test-content")
     signer = JEPSigner()
     payload = event.canonicalize()
@@ -33,7 +33,7 @@ def test_signature_and_verification():
     assert "all checks passed" in msg
 
 def test_replay_protection():
-    """Section 2.3: 防重放机制"""
+    """Section 2.3: Anti-replay mechanism"""
     event = JEPEvent("J", "did:example:agent-001", "content")
     signer = JEPSigner()
     event.sig = signer.sign(event.canonicalize())
@@ -49,7 +49,7 @@ def test_replay_protection():
     assert "REPLAY" in msg2
 
 def test_clock_skew():
-    """Section 2.3: 时钟容差 ±5 分钟"""
+    """Section 2.3: Clock skew tolerance ±5 minutes"""
     event = JEPEvent("J", "did:example:agent-001", "content")
     event.when = int(time.time()) - 400
     signer = JEPSigner()
@@ -61,7 +61,7 @@ def test_clock_skew():
     assert "Clock skew" in msg
 
 def test_ttl_extension():
-    """Section 2.5.3: TTL 扩展"""
+    """Section 2.5.3: TTL extension"""
     event = JEPEvent("J", "did:example:agent-001", "content", ttl_minutes=60)
     event_dict = event.to_dict()
     assert "ttl" in event_dict
